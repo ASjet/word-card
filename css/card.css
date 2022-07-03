@@ -1,0 +1,15 @@
+code.word {
+  margin-left: 3px;
+  margin-right: 3px;
+  color: black;
+  background-color: lightblue;
+}
+
+code.word:hover {
+  color: black;
+  background-color: lightgreen;
+}
+
+#sentence {
+  width: 50%;
+}
