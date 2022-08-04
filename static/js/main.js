@@ -67,6 +67,6 @@ function clear() {
   input.value = "";
 }
 
-document.querySelector("#btn").onclick = GetWordList;
-document.querySelector("#clip").onclick = GetClipboard;
-document.querySelector("#clear").onclick = clear;
+input.addEventListener("input", GetWordList);
+document.querySelector("#clear").addEventListener("click", clear);
+
