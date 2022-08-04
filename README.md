@@ -11,3 +11,9 @@ Use [OxfordDictionaries](https://developer.oxforddictionaries.com/) as dictionar
 ```shell
 python main.py
 ```
+
+## Database migration from v0.1
+
+```shell
+python db.py -m <old_records_dir>
+```
