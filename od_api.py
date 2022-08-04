@@ -1,11 +1,10 @@
 import json
-from pathlib import Path
 
 from requests import get, Response
 
-from config import BASE_URL, APP_ID, APP_KEY, RECORD_ROOT
+from config import BASE_URL, APP_ID, APP_KEY
+from db import WordDB
 
-ROOT_PATH = Path(RECORD_ROOT)
 HEADERS = {"app_id": APP_ID, "app_key": APP_KEY}
 
 
@@ -36,18 +35,6 @@ def parse_response(query: str, response: Response) -> tuple[str, dict]:
 
 
 def process_record(word: str, context: str) -> None:
-    if not ROOT_PATH.exists():
-        ROOT_PATH.mkdir()
-    path: Path = ROOT_PATH / f"{word}.json"
-    if path.exists():
-        content = json.loads(path.read_text())
-        if context not in content["context"]:
-            content["context"].append(context)
-        path.write_text(json.dumps(content))
-    else:
-        query, definitions = parse_response(word, make_request(word))
-        path.write_text(
-            json.dumps(
-                {"word": query, "context": [context], "definitions": definitions}
-            )
-        )
+    query, definitions = parse_response(word, make_request(word))
+    record = {"word": query, "context": [context], "definitions": definitions}
+    WordDB().migrate([record])
