@@ -48,12 +48,28 @@ function Trim(str) {
 }
 
 function GetWordList() {
-  const context = input.value;
+  const raw = input.value;
+  let context = "";
+  for (let word of raw.split(' ')) {
+    if(word.length == 0) {
+      continue;
+    }
+    if(context.length == 0) {
+      context += word;
+    } else {
+      if(context[context.length-1] == '-') {
+        context = context.slice(0, -1) + word;
+      } else {
+        context += ' ' + word;
+      }
+    }
+  }
   holder.innerHTML = "";
   for (let word of context.split(' ')) {
     holder.appendChild(GenWord(word));
     holder.innerHTML += ' ';
   }
+  input.value = context;
   AddEvent();
 }
 
