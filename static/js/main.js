@@ -69,6 +69,9 @@ function GetWordList() {
     holder.appendChild(GenWord(word));
     holder.innerHTML += ' ';
   }
+  if (raw[raw.length-1] == ' ') {
+    context += ' ';
+  }
   input.value = context;
   AddEvent();
 }
