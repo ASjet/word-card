@@ -30,4 +30,4 @@ purge:
 	@rm words.db
 
 clean:
-	@rm -vrf build
+	@rm -vrf build .NPM_INSTALL
