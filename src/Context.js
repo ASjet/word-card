@@ -8,7 +8,7 @@ import Snackbar from '@mui/material/Snackbar';
 import MuiAlert from '@mui/material/Alert';
 
 const Alert = React.forwardRef(function Alert(props, ref) {
-  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+  return <MuiAlert elevation={6} ref={ref} variant="filled" severity={props.severity}>{props.message}</MuiAlert>;
 });
 
 class Context extends React.Component {
@@ -97,7 +97,7 @@ class Context extends React.Component {
         this.setState({
           open: true,
           msgType: "error",
-          msg: err
+          msg: "Record failed"
         });
       });
     this.clear();
@@ -114,9 +114,7 @@ class Context extends React.Component {
             horizontal: this.state.horizontal
           }}
         >
-          <Alert severity={this.msgType} sx={{ width: '100%' }}>
-            {this.msg}
-          </Alert>
+          <Alert severity={this.state.msgType} sx={{ width: '100%' }} message={this.state.msg} />
         </Snackbar>
         <div
           style={{
