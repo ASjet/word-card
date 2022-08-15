@@ -52,7 +52,3 @@ def main() -> None:
         target=process_records, kwargs={"interval": QUERY_INTERVAL}
     ).start()
     app.run(host="0.0.0.0", port=21000, debug=False, threaded=True)
-
-
-if __name__ == "__main__":
-    main()
