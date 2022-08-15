@@ -8,7 +8,7 @@ run:
 build: .NPM_INSTALL
 	@rm -rf build
 	@npm run build
-	@cp app/* build/
+	@-cp app/*.py build/
 	@mkdir build/templates
 	@mv build/index.html build/templates
 
