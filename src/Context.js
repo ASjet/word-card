@@ -38,7 +38,7 @@ class Context extends React.Component {
           label={word}
           onClick={this.recordWord}
           color="primary"
-          variant="outlined"
+          variant="contained"
           sx={{
             margin: "5px"
           }}
