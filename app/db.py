@@ -3,8 +3,8 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime
 
-WORD_DB = "words.db"
-TABLES = ["words", "context", "define"]
+WORD_DB = "../words.db"
+TABLES = ["words", "context", "define", "mastered"]
 log = logging.getLogger("sqlite3")
 
 
@@ -35,7 +35,6 @@ class WordDB:
             CREATE TABLE words (
                 id INTEGER PRIMARY KEY,
                 word VARCHAR(30) UNIQUE,
-                mastered INTEGER DEFAULT FALSE,
                 create_time INTEGER
             ) """
             self.cur.execute(sql)
@@ -60,16 +59,25 @@ class WordDB:
             )
             """
             self.cur.execute(sql)
+            sql = """
+            CREATE TABLE mastered (
+                id INTEGER PRIMARY KEY,
+                word INTEGER ,
+                mastered INTEGER DEFAULT FALSE,
+                update_time INTEGER,
+                FOREIGN KEY (word) REFERENCES words ON DELETE CASCADE
+            )
+            """
+            self.cur.execute(sql)
             self.con.commit()
         except Exception as e:
             log.warning(e, sql)
 
-    def _get_id_by_word(self, word: str) -> int:
-        res = self.cur.execute(f'SELECT id FROM words WHERE word = "{word}"').fetchone()
-        if len(res) == 0:
-            return None
+    def _parse_cond(self, cond: dict) -> str:
+        if bool(cond):
+            return "WHERE " + ",".join([f'"{k}"="{v}"' for k, v in cond.items()])
         else:
-            return int(res[0])
+            return ""
 
     def _insert_sql(self, table: str, fields: dict) -> str:
         columns = []
@@ -81,24 +89,77 @@ class WordDB:
         return sql
 
     def _select_sql(self, table: str, _fields: list[str], _cond: dict) -> str:
-        if bool(_cond):
-            cond = "WHERE " + ",".join([f'"{k}"="{v}"' for k, v in _cond.items()])
-        else:
-            cond = ""
+        cond = self._parse_cond(_cond)
         fields = ",".join(_fields) if bool(_fields) else "*"
         sql = f"SELECT {fields} FROM {table} {cond}"
         return sql
 
-    def insert_word(self, word: str) -> bool:
+    def _update_sql(self, table: str, _fields: dict, _cond: dict) -> str:
+        cond = self._parse_cond(_cond)
+        fields = "SET " + ",".join([f'"{k}"="{v}"' for k, v in _fields.items()])
+        sql = f"UPDATE {table} {fields} {cond}"
+        return sql
+
+    def _get_id_by_word(self, word: str) -> int:
+        sql = self._select_sql("words", ["id"], {"word": word})
+        res = self.cur.execute(sql).fetchone()
+        if res is None or len(res) == 0:
+            return None
+        else:
+            return int(res[0])
+
+    def insert_word(self, word: str, mastered: bool = False) -> bool:
         ts = cur_utc_timestamp()
         try:
             sql = self._insert_sql("words", {"word": word, "create_time": ts})
             self.cur.execute(sql)
             self.con.commit()
             log.info(f'Insert new word "{word}"')
+            self.master_word(word, mastered)
             return True
         except Exception as e:
             log.warning(f"insert_word: {e}\nSQL: {sql}")
+            return False
+
+    def master_word(self, word: str, mastered: bool = True) -> bool:
+        ts = cur_utc_timestamp()
+        try:
+            wid = word if isinstance(word, int) else self._get_id_by_word(word)
+            if wid is None:
+                return False
+            flag = "TRUE" if mastered else "FALSE"
+            sql = self._select_sql("mastered", ["id"], {"word": wid})
+            res = self.cur.execute(sql).fetchone()
+            if res is None or len(res) == 0:
+                sql = self._insert_sql(
+                    "mastered", {"word": wid, "mastered": flag, "update_time": ts}
+                )
+            else:
+                mid = int(res[0])
+                sql = self._update_sql(
+                    "mastered", {"mastered": flag, "update_time": ts}, {"id": mid}
+                )
+            self.cur.execute(sql)
+            self.con.commit()
+            log.info(
+                f'Update word "{word}" to {"mastered" if mastered else "unmastered"}'
+            )
+            return True
+        except Exception as e:
+            log.warning(f"master_word: {e}\nSQL: {sql}")
+
+    def is_mastered(self, word: str) -> bool:
+        try:
+            wid = word if isinstance(word, int) else self._get_id_by_word(word)
+            if wid is None:
+                return False
+            sql = self._select_sql("mastered", ["mastered"], {"word": wid})
+            res = self.cur.execute(sql).fetchone()
+            if len(res) == 0:
+                return False
+            return bool(res[0])
+        except Exception as e:
+            log.warning(f"is_mastered: {e}\nSQL: {sql}")
             return False
 
     def insert_context(self, word: str, context: str) -> bool:
@@ -199,9 +260,10 @@ class WordDB:
             cnt = 0
             for record in records:
                 word = record.get("word", None)
+                mastered = record.get("mastered", False)
                 if word is None:
                     continue
-                if self.insert_word(word):
+                if self.insert_word(word, mastered):
                     cnt += 1
                 wid = self._get_id_by_word(word)
                 for context in record["context"]:
@@ -225,9 +287,17 @@ class WordDB:
             res = []
             for word in self.retrive_words():
                 wid = self._get_id_by_word(word)
+                master = self.is_mastered(wid)
                 contexts = self.retrive_context(wid)
                 defines = self.retrive_define(wid)
-                res.append({"word": word, "context": contexts, "definitions": defines})
+                res.append(
+                    {
+                        "word": word,
+                        "mastered": master,
+                        "context": contexts,
+                        "definitions": defines,
+                    }
+                )
             return res
         except Exception as e:
             log.warning(f"dump: {e}")
