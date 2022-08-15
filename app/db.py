@@ -155,9 +155,9 @@ class WordDB:
                 return False
             sql = self._select_sql("mastered", ["mastered"], {"word": wid})
             res = self.cur.execute(sql).fetchone()
-            if len(res) == 0:
+            if res is None or len(res) == 0:
                 return False
-            return bool(res[0])
+            return res[0] == "TRUE"
         except Exception as e:
             log.warning(f"is_mastered: {e}\nSQL: {sql}")
             return False
