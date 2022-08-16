@@ -8,12 +8,34 @@ Use [OxfordDictionaries](https://developer.oxforddictionaries.com/) as dictionar
 
 ## Usage
 
+### Build
+
+Build and setup
+
 ```shell
-python main.py
+make build
 ```
 
-## Database migration from v0.1
+### Run
+
+Start `Flask` server
 
 ```shell
-python db.py -m <old_records_dir>
+make run
+```
+
+### Dump
+
+Dump database to `dumps/` in json format, one file per record
+
+```shell
+make dump
+```
+
+### Migrate
+
+Load record in json from `records/`, one record per file
+
+```shell
+make migrate
 ```
