@@ -30,8 +30,8 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/word", methods=["GET", "POST"])
-def post_word():
+@app.route("/word", methods=["GET", "POST", "DELETE"])
+def api_word():
     if request.method == "GET":
         try:
             db = WordDB()
@@ -42,6 +42,16 @@ def post_word():
     elif request.method == "POST":
         data: dict = request.json
         return record(data)
+    elif request.method == "DELETE":
+        try:
+            word = request.args.get("word")
+            db = WordDB()
+            db.delete_word(word)
+            return json_response(200, "Delete successfully", None)
+        except KeyError as e:
+            return json_response(400, "Invalid parameters", None)
+        except Exception:
+            return json_response(500, f"Failed to delete word {word}", None)
 
 
 @app.route("/define", methods=["GET"])

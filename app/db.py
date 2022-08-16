@@ -260,6 +260,16 @@ class WordDB:
             "definitions": defines,
         }
 
+    def delete_word(self, word: str) -> bool:
+        try:
+            sql = f'DELETE FROM words WHERE word = "{word}"'
+            self.cur.execute(sql)
+            self.con.commit()
+            return True
+        except Exception as e:
+            log.warning(f"delete_word: {e}\nSQL: {sql}")
+            return False
+
     def purge(self, tables=TABLES) -> int:
         try:
             cnt = 0
