@@ -108,18 +108,21 @@ class WordDB:
         else:
             return int(res[0])
 
-    def insert_word(self, word: str, mastered: bool = False) -> bool:
+    def insert_word(self, word: str, mastered: bool = False) -> int:
         ts = cur_utc_timestamp()
         try:
-            sql = self._insert_sql("words", {"word": word, "create_time": ts})
-            self.cur.execute(sql)
-            self.con.commit()
-            log.info(f'Insert new word "{word}"')
-            self.master_word(word, mastered)
-            return True
+            wid = self._get_id_by_word(word)
+            if wid is None:
+                sql = self._insert_sql("words", {"word": word, "create_time": ts})
+                self.cur.execute(sql)
+                self.con.commit()
+                log.info(f'Insert new word "{word}"')
+                wid = self._get_id_by_word(word)
+            self.master_word(wid, mastered)
+            return wid
         except Exception as e:
             log.warning(f"insert_word: {e}\nSQL: {sql}")
-            return False
+            return None
 
     def master_word(self, word: str, mastered: bool = True) -> bool:
         ts = cur_utc_timestamp()
@@ -203,8 +206,11 @@ class WordDB:
             return False
 
     def insert_record(self, word: str, context: str) -> bool:
-        self.insert_word(word)
-        return self.insert_context(word, context)
+        wid = self.insert_word(word)
+        if wid is not None:
+            return self.insert_context(wid, context)
+        else:
+            return False
 
     def retrive_words(self) -> list[str]:
         try:
@@ -242,6 +248,18 @@ class WordDB:
             log.warning(f"retrive_define: {e}\nSQL: {sql}")
             return None
 
+    def retrive_record(self, word: str) -> dict:
+        wid = self._get_id_by_word(word)
+        mastered = self.is_mastered(wid)
+        contexts = self.retrive_context(wid)
+        defines = self.retrive_define(wid)
+        return {
+            "word": word,
+            "mastered": mastered,
+            "context": contexts,
+            "definitions": defines,
+        }
+
     def purge(self, tables=TABLES) -> int:
         try:
             cnt = 0
@@ -263,9 +281,10 @@ class WordDB:
                 mastered = record.get("mastered", False)
                 if word is None:
                     continue
-                if self.insert_word(word, mastered):
-                    cnt += 1
-                wid = self._get_id_by_word(word)
+                wid = self.insert_word(word, mastered)
+                if wid is None:
+                    continue
+                cnt += 1
                 for context in record["context"]:
                     self.insert_context(wid, context)
                 defines = record["definitions"]
@@ -284,21 +303,7 @@ class WordDB:
 
     def dump(self) -> list[dict]:
         try:
-            res = []
-            for word in self.retrive_words():
-                wid = self._get_id_by_word(word)
-                master = self.is_mastered(wid)
-                contexts = self.retrive_context(wid)
-                defines = self.retrive_define(wid)
-                res.append(
-                    {
-                        "word": word,
-                        "mastered": master,
-                        "context": contexts,
-                        "definitions": defines,
-                    }
-                )
-            return res
+            return [self.retrive_record(word) for word in self.retrive_words()]
         except Exception as e:
             log.warning(f"dump: {e}")
             return None
