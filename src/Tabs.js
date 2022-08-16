@@ -5,6 +5,7 @@ import Tab from '@mui/material/Tab';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Context from "./Context"
+import WordCard from "./WordCard"
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -58,7 +59,7 @@ export default function BasicTabs() {
         <Context></Context>
       </TabPanel>
       <TabPanel value={value} index={1}>
-        TODO
+        <WordCard></WordCard>
       </TabPanel>
     </Box>
   );
