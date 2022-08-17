@@ -1,5 +1,9 @@
 # word-card
 
+[![License](https://img.shields.io/github/license/ASjet/word-card)](https://github.com/ASjet/word-card/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/ASjet/word-card)](https://github.com/ASjet/word-card/releases/latest)
+
+
 Memorize words in context
 
 ## API
