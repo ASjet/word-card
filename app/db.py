@@ -173,28 +173,28 @@ class WordDB:
 
     def insert_context(self, word: str, context: str) -> None:
         wid = word if isinstance(word, int) else self._get_id_by_word(word)
-        self._insert(
-            "context",
-            {"word": wid, "context": context, "create_time": cur_utc_timestamp()},
-        )
-        log.info(f'insert new context "{context}" of word "{word}"')
+        contexts = self._select("context", ["context"], {"word": wid})
+        if context not in contexts:
+            self._insert(
+                "context",
+                {"word": wid, "context": context, "create_time": cur_utc_timestamp()},
+            )
+            log.info(f'insert new context "{context}" of word "{word}"')
 
     def insert_define(self, word: str, category: str, define: str) -> None:
         wid = word if isinstance(word, int) else self._get_id_by_word(word)
-        self._insert(
-            "define",
-            {
-                "word": wid,
-                "category": category,
-                "define": define,
-                "create_time": cur_utc_timestamp(),
-            },
-        )
-        log.info(f'insert new define {category}:"{define}" of word "{word}"')
-
-    def insert_record(self, word: str, context: str) -> None:
-        wid = self.insert_word(word)
-        self.insert_context(wid, context)
+        res = self._select("define", ["word"], {"word": wid})
+        if len(res) == 0:
+            self._insert(
+                "define",
+                {
+                    "word": wid,
+                    "category": category,
+                    "define": define,
+                    "create_time": cur_utc_timestamp(),
+                },
+            )
+            log.info(f'insert new define {category}:"{define}" of word "{word}"')
 
     def retrive_words(self) -> list[str]:
         return self._select("words", ["word"], None)
