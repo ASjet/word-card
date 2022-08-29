@@ -10,7 +10,9 @@ Memorize words in context
 
 ## API
 
-Use [OxfordDictionaries](https://developer.oxforddictionaries.com/) as dictionary api service, read [documentation](https://developer.oxforddictionaries.com/documentation) for more information.
+1. [OxfordDictionaries](https://developer.oxforddictionaries.com/), read [documentation](https://developer.oxforddictionaries.com/documentation) for more information.
+
+2. https://api.dictionaryapi.dev/api/v2/entries/en/<word>
 
 ## Usage
 
@@ -20,6 +22,8 @@ Build and setup
 
 ```shell
 make build
+# only for backend
+make build-back
 ```
 
 ### Run
