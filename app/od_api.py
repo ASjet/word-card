@@ -1,48 +1,31 @@
-import json
+import os
+import logging
 
-from requests import get, Response
+import config
 
-from config import BASE_URL, APP_ID, APP_KEY
-from db import WordDB
+API_ID = os.environ.get("API_ID")
+API_KEY = os.environ.get("API_KEY")
+RECORD_ROOT = os.environ.get("RECORD_ROOT", "records")
 
-HEADERS = {"app_id": APP_ID, "app_key": APP_KEY}
-UNDEFINED = "Undefined"
+BASE_URL = "https://od-api.oxforddictionaries.com/api/v2"
+HEADERS = {"app_id": API_ID, "app_key": API_KEY}
 
-
-def make_request(query, lang="en-us") -> str:
-    url = f"{BASE_URL}/entries/{lang}/{query.lower()}?fields=definitions"
-    return get(url, headers=HEADERS)
+log = logging.Logger("od_api")
 
 
-def parse_response(query: str, response: Response) -> tuple[str, dict]:
-    if response.status_code == 200:
-        ret = json.loads(response.content)
-        try:
-            query = ret.get("id", query)
-            definitions = {}
-            for result in ret.get("results", []):
-                for entries in result["lexicalEntries"]:
-                    cat = entries["lexicalCategory"]["text"]
-                    senses = []
-                    for entry in entries["entries"]:
-                        for sense in entry.get("senses", []):
-                            senses.extend(sense["definitions"])
-                    definitions.setdefault(cat, []).extend(senses)
-        except:
-            definitions = ret
-    else:
-        definitions = UNDEFINED
+def make_query(word: str, lang: str = "en-us") -> str:
+    return f"{BASE_URL}/entries/{lang}/{word.lower()}?fields=definitions"
+
+
+def parse_response(word: str, resp: dict) -> tuple[str, dict]:
+    query = resp.get("id", word)
+    definitions = {}
+    for result in resp.get("results", []):
+        for entries in result["lexicalEntries"]:
+            cat = entries["lexicalCategory"]["text"]
+            senses = []
+            for entry in entries["entries"]:
+                for sense in entry.get("senses", []):
+                    senses.extend(sense["definitions"])
+            definitions.setdefault(cat, []).extend(senses)
     return query, definitions
-
-
-def process_record(word: str, context: str) -> None:
-    query, definitions = parse_response(word, make_request(word))
-    if definitions == UNDEFINED:
-        raise ValueError(f"No definition found: {query}")
-    record = {
-        "word": query,
-        "mastered": False,
-        "context": [context],
-        "definitions": definitions,
-    }
-    WordDB().migrate([record])

@@ -2,6 +2,7 @@ import logging
 import sqlite3
 from pathlib import Path
 from datetime import datetime
+import traceback
 
 WORD_DB = "../words.db"
 TABLES = ["words", "context", "define", "mastered"]
@@ -73,180 +74,142 @@ class WordDB:
         except Exception as e:
             log.warning(e, sql)
 
-    def _parse_cond(self, cond: dict) -> str:
+    def _gen_cond(self, cond: dict) -> str:
         if bool(cond):
             return "WHERE " + ",".join([f'"{k}"="{v}"' for k, v in cond.items()])
         else:
             return ""
 
-    def _insert_sql(self, table: str, fields: dict) -> str:
+    def _insert(self, table: str, fields: dict) -> None:
         columns = []
         values = []
         for k, v in fields.items():
             columns.append(k)
             values.append(f'"{v}"')
         sql = f'INSERT INTO {table} ({",".join(columns)}) VALUES ({",".join(values)})'
-        return sql
+        log.info(f"_insert: execute {sql}")
+        try:
+            self.cur.execute(sql)
+            self.con.commit()
+        except Exception as e:
+            st = traceback.extract_stack()
+            raise RuntimeError(f"_insert: {e}\n{st}")
 
-    def _select_sql(self, table: str, _fields: list[str], _cond: dict) -> str:
-        cond = self._parse_cond(_cond)
-        fields = ",".join(_fields) if bool(_fields) else "*"
-        sql = f"SELECT {fields} FROM {table} {cond}"
-        return sql
+    def _select(self, table: str, fields: list[str], filter: dict) -> list[tuple]:
+        cond = self._gen_cond(filter)
+        fields_s = ",".join(fields) if bool(fields) else "*"
+        sql = f"SELECT {fields_s} FROM {table} {cond}"
+        log.info(f"_select: execute {sql}")
+        try:
+            result = self.cur.execute(sql)
+            return [tuple(res) for res in result]
+        except Exception as e:
+            st = traceback.extract_stack()
+            raise RuntimeError(f"_select: {e}\n{st}")
 
-    def _update_sql(self, table: str, _fields: dict, _cond: dict) -> str:
-        cond = self._parse_cond(_cond)
-        fields = "SET " + ",".join([f'"{k}"="{v}"' for k, v in _fields.items()])
-        sql = f"UPDATE {table} {fields} {cond}"
-        return sql
+    def _update(self, table: str, fields: dict, filter: dict) -> None:
+        cond = self._gen_cond(filter)
+        fields_s = "SET " + ",".join([f'"{k}"="{v}"' for k, v in fields.items()])
+        sql = f"UPDATE {table} {fields_s} {cond}"
+        log.info(f"_update: execute {sql}")
+        try:
+            self.cur.execute(sql)
+            self.con.commit()
+        except Exception as e:
+            st = traceback.extract_stack()
+            raise RuntimeError(f"_update: {e}\n{st}")
+
+    def _delete(self, table: str, filter: dict) -> None:
+        cond = self._gen_cond(filter)
+        sql = f"DELETE FROM {table} {cond}"
+        log.info(f"_delete: execute {sql}")
+        try:
+            self.cur.execute(sql)
+            self.con.commit()
+        except Exception as e:
+            st = traceback.extract_stack()
+            raise RuntimeError(f"_delete: {e}\n{st}")
 
     def _get_id_by_word(self, word: str) -> int:
-        sql = self._select_sql("words", ["id"], {"word": word})
-        res = self.cur.execute(sql).fetchone()
-        if res is None or len(res) == 0:
-            return None
+        res = self._select("words", ["id"], {"word": word})
+        if len(res) == 0:
+            raise KeyError(f'_get_id_by_word: no such word: "{word}"')
         else:
-            return int(res[0])
+            return int(res[0][0])
 
     def insert_word(self, word: str, mastered: bool = False) -> int:
-        ts = cur_utc_timestamp()
         try:
             wid = self._get_id_by_word(word)
-            if wid is None:
-                sql = self._insert_sql("words", {"word": word, "create_time": ts})
-                self.cur.execute(sql)
-                self.con.commit()
-                log.info(f'Insert new word "{word}"')
-                wid = self._get_id_by_word(word)
-            self.master_word(wid, mastered)
-            return wid
-        except Exception as e:
-            log.warning(f"insert_word: {e}\nSQL: {sql}")
-            return None
+        except KeyError:
+            self._insert("words", {"word": word, "create_time": cur_utc_timestamp()})
+            log.info(f'new word "{word}"')
+            wid = self._get_id_by_word(word)
+        self.master_word(wid, mastered)
+        return wid
 
-    def master_word(self, word: str, mastered: bool = True) -> bool:
-        ts = cur_utc_timestamp()
-        try:
-            wid = word if isinstance(word, int) else self._get_id_by_word(word)
-            if wid is None:
-                return False
-            flag = "TRUE" if mastered else "FALSE"
-            sql = self._select_sql("mastered", ["id"], {"word": wid})
-            res = self.cur.execute(sql).fetchone()
-            if res is None or len(res) == 0:
-                sql = self._insert_sql(
-                    "mastered", {"word": wid, "mastered": flag, "update_time": ts}
-                )
-            else:
-                mid = int(res[0])
-                sql = self._update_sql(
-                    "mastered", {"mastered": flag, "update_time": ts}, {"id": mid}
-                )
-            self.cur.execute(sql)
-            self.con.commit()
-            log.info(
-                f'Update word "{word}" to {"mastered" if mastered else "unmastered"}'
+    def master_word(self, word: str, mastered: bool = True) -> None:
+        wid = word if isinstance(word, int) else self._get_id_by_word(word)
+        flag = "TRUE" if mastered else "FALSE"
+        res = self._select("mastered", ["id"], {"word": wid})
+        if len(res) == 0:
+            self._insert(
+                "mastered",
+                {"word": wid, "mastered": flag, "update_time": cur_utc_timestamp()},
             )
-            return True
-        except Exception as e:
-            log.warning(f"master_word: {e}\nSQL: {sql}")
+        else:
+            mid = int(res[0])
+            self._update(
+                "mastered",
+                {"mastered": flag, "update_time": cur_utc_timestamp()},
+                {"id": mid},
+            )
+        log.info(f'mark word "{word}" as {"mastered" if mastered else "unmastered"}')
 
     def is_mastered(self, word: str) -> bool:
-        try:
-            wid = word if isinstance(word, int) else self._get_id_by_word(word)
-            if wid is None:
-                return False
-            sql = self._select_sql("mastered", ["mastered"], {"word": wid})
-            res = self.cur.execute(sql).fetchone()
-            if res is None or len(res) == 0:
-                return False
-            return res[0] == "TRUE"
-        except Exception as e:
-            log.warning(f"is_mastered: {e}\nSQL: {sql}")
-            return False
+        wid = word if isinstance(word, int) else self._get_id_by_word(word)
+        res = self._select("mastered", ["mastered"], {"word": wid})
+        assert len(res) > 0
+        return res[0] == "TRUE"
 
-    def insert_context(self, word: str, context: str) -> bool:
-        ts = cur_utc_timestamp()
-        try:
-            wid = word if isinstance(word, int) else self._get_id_by_word(word)
-            if wid is None:
-                return False
-            sql = self._insert_sql(
-                "context", {"word": wid, "context": context, "create_time": ts}
-            )
-            self.cur.execute(sql)
-            self.con.commit()
-            log.info(f'Insert new context "{context}" of word "{word}"')
-            return True
-        except Exception as e:
-            log.warning(f"insert_context: {e}\nSQL: {sql}")
-            return False
+    def insert_context(self, word: str, context: str) -> None:
+        wid = word if isinstance(word, int) else self._get_id_by_word(word)
+        self._insert(
+            "context",
+            {"word": wid, "context": context, "create_time": cur_utc_timestamp()},
+        )
+        log.info(f'insert new context "{context}" of word "{word}"')
 
-    def insert_define(self, word: str, category: str, define: str) -> bool:
-        ts = cur_utc_timestamp()
-        try:
-            wid = word if isinstance(word, int) else self._get_id_by_word(word)
-            if wid is None:
-                return False
-            sql = self._insert_sql(
-                "define",
-                {
-                    "word": wid,
-                    "category": category,
-                    "define": define,
-                    "create_time": ts,
-                },
-            )
-            self.cur.execute(sql)
-            self.con.commit()
-            log.info(f'Insert new define {category}:"{define}" of word "{word}"')
-            return True
-        except Exception as e:
-            log.warning(f"insert_define: {e}\nSQL: {sql}")
-            return False
+    def insert_define(self, word: str, category: str, define: str) -> None:
+        wid = word if isinstance(word, int) else self._get_id_by_word(word)
+        self._insert(
+            "define",
+            {
+                "word": wid,
+                "category": category,
+                "define": define,
+                "create_time": cur_utc_timestamp(),
+            },
+        )
+        log.info(f'insert new define {category}:"{define}" of word "{word}"')
 
-    def insert_record(self, word: str, context: str) -> bool:
+    def insert_record(self, word: str, context: str) -> None:
         wid = self.insert_word(word)
-        if wid is not None:
-            return self.insert_context(wid, context)
-        else:
-            return False
+        self.insert_context(wid, context)
 
     def retrive_words(self) -> list[str]:
-        try:
-            sql = self._select_sql("words", ["word"], None)
-            return [res[0] for res in self.cur.execute(sql)]
-        except Exception as e:
-            log.warning(f"retrive_words: {e}\nSQL: {sql}")
-            return None
+        return self._select("words", ["word"], None)
 
     def retrive_context(self, word: str) -> list[str]:
         wid = word if isinstance(word, int) else self._get_id_by_word(word)
-        if wid is None:
-            return []
-
-        try:
-            sql = self._select_sql("context", ["context"], {"word": wid})
-            return [res[0] for res in self.cur.execute(sql)]
-        except Exception as e:
-            log.warning(f"retrive_context: {e}\nSQL: {sql}")
-            return None
+        return self._select("context", ["context"], {"word": wid})
 
     def retrive_define(self, word: str) -> dict[str, list[str]]:
         wid = word if isinstance(word, int) else self._get_id_by_word(word)
-        if wid is None:
-            return []
-
-        try:
-            sql = self._select_sql("define", ["category", "define"], {"word": wid})
-            res = self.cur.execute(sql)
-            result = {}
-            for cat, define in res:
-                result.setdefault(cat, []).append(define)
-            return result
-        except Exception as e:
-            log.warning(f"retrive_define: {e}\nSQL: {sql}")
-            return None
+        res = self._select("define", ["category", "define"], {"word": wid})
+        result = {}
+        for cat, define in res:
+            result.setdefault(cat, []).append(define)
+        return result
 
     def retrive_record(self, word: str) -> dict:
         wid = self._get_id_by_word(word)
@@ -261,26 +224,21 @@ class WordDB:
         }
 
     def delete_word(self, word: str) -> bool:
-        try:
-            sql = f'DELETE FROM words WHERE word = "{word}"'
-            self.cur.execute(sql)
-            self.con.commit()
-            return True
-        except Exception as e:
-            log.warning(f"delete_word: {e}\nSQL: {sql}")
-            return False
+        wid = self._get_id_by_word(word)
+        self._delete("words", {"id": wid})
+        self._delete("context", {"word": wid})
+        self._delete("define", {"word": wid})
+        self._delete("mastered", {"word": wid})
 
     def purge(self, tables=TABLES) -> int:
         try:
             cnt = 0
             for table in tables:
-                sql = f"DELETE FROM {table}"
-                self.cur.execute(sql)
+                self._delete(table, None)
                 cnt += 1
-            self.con.commit()
             return cnt
         except Exception as e:
-            log.warning(f"purge: {e}\nSQL: {sql}")
+            log.warning(e)
             return cnt
 
     def migrate(self, records: list[dict], verbose=False) -> int:
@@ -305,15 +263,14 @@ class WordDB:
                         self.insert_define(wid, cat, define)
                 if verbose:
                     print(record)
-            self.con.commit()
             return cnt
         except Exception as e:
-            log.warning(f"migrate: {e}\nrecord: {record}")
+            log.warning(e)
             return cnt
 
     def dump(self) -> list[dict]:
         try:
             return [self.retrive_record(word) for word in self.retrive_words()]
         except Exception as e:
-            log.warning(f"dump: {e}")
+            log.warning(e)
             return None
