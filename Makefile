@@ -1,7 +1,7 @@
 TIMESTAMP=$(shell date "+%Y%m%dT%H%M%S")
 DUMP_NAME=db_dump_$(TIMESTAMP)
 
-.PHONY: run build dump purge clean
+.PHONY: run build build-back dump purge clean
 run:
 	@cd build && python main.py
 
@@ -9,8 +9,13 @@ build: .NPM_INSTALL
 	@rm -rf build
 	@npm run build
 	@-cp app/*.py build/
+	@-cp .env build/
 	@mkdir build/templates
 	@mv build/index.html build/templates
+
+build-back:
+	@-cp app/*.py build/
+	@-cp .env build/
 
 .NPM_INSTALL: package.json
 	@npm install
