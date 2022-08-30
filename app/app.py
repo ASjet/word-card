@@ -2,10 +2,9 @@ import os
 import json
 import logging
 
-from requests import get, Response
 from flask import Flask, jsonify, request, render_template, Response
 
-from fd_api import make_query, parse_response
+from od_api import make_query, parse_response
 from db import WordDB
 
 QUERY_INTERVAL_DEFAULT = 60
@@ -16,8 +15,7 @@ log = logging.Logger("app")
 
 
 def query(word: str) -> tuple[str, dict]:
-    url = make_query(word)
-    resp = get(url)
+    resp = make_query(word)
     if resp.status_code != 200:
         if resp.status_code == 404:
             raise ValueError(json.loads(resp.content))

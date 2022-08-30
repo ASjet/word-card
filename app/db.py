@@ -160,7 +160,7 @@ class WordDB:
                 {"word": wid, "mastered": flag, "update_time": cur_utc_timestamp()},
             )
         else:
-            mid = int(res[0])
+            mid = int(res[0][0])
             self._update(
                 "mastered",
                 {"mastered": flag, "update_time": cur_utc_timestamp()},
