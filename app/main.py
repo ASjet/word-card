@@ -27,7 +27,7 @@ if __name__ == "__main__":
             print("Database created")
         elif args.purge:
             cnt = db.purge()
-            print(f"{cnt}/{len(TABLES)} table(s) purged")
+            print(f"{cnt} record(s) purged")
         elif args.dump:
             path = Path(args.dump)
             if not path.exists():

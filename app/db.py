@@ -23,6 +23,8 @@ class WordDB:
         else:
             self.con = sqlite3.connect(self.DB_NAME)
             self.cur = self.con.cursor()
+        # Turn on foreign key to support on delete cascade
+        self.cur.execute("PRAGMA foreign_keys = ON")
 
     def __del__(self):
         self.con.commit()
@@ -32,6 +34,7 @@ class WordDB:
         try:
             self.con = sqlite3.connect(self.DB_NAME)
             self.cur = self.con.cursor()
+            self.cur.execute("PRAGMA foreign_keys = ON")
             sql = """
             CREATE TABLE words (
                 id INTEGER PRIMARY KEY,
@@ -45,7 +48,7 @@ class WordDB:
                 word INTEGER,
                 context VARCHAR(256),
                 create_time INTEGER,
-                FOREIGN KEY (word) REFERENCES words ON DELETE CASCADE
+                FOREIGN KEY (word) REFERENCES words (id) ON DELETE CASCADE
             )
             """
             self.cur.execute(sql)
@@ -56,7 +59,7 @@ class WordDB:
                 category VARCHAR(30),
                 define VARCHAR(512),
                 create_time INTEGER,
-                FOREIGN KEY (word) REFERENCES words ON DELETE CASCADE
+                FOREIGN KEY (word) REFERENCES words (id) ON DELETE CASCADE
             )
             """
             self.cur.execute(sql)
@@ -66,7 +69,7 @@ class WordDB:
                 word INTEGER ,
                 mastered INTEGER DEFAULT FALSE,
                 update_time INTEGER,
-                FOREIGN KEY (word) REFERENCES words ON DELETE CASCADE
+                FOREIGN KEY (word) REFERENCES words (id) ON DELETE CASCADE
             )
             """
             self.cur.execute(sql)
@@ -226,20 +229,11 @@ class WordDB:
     def delete_word(self, word: str) -> bool:
         wid = self._get_id_by_word(word)
         self._delete("words", {"id": wid})
-        self._delete("context", {"word": wid})
-        self._delete("define", {"word": wid})
-        self._delete("mastered", {"word": wid})
 
     def purge(self, tables=TABLES) -> int:
-        try:
-            cnt = 0
-            for table in tables:
-                self._delete(table, None)
-                cnt += 1
-            return cnt
-        except Exception as e:
-            log.warning(e)
-            return cnt
+        cnt = len(self._select("words", ["id"], None))
+        self._delete("words", None)
+        return cnt
 
     def migrate(self, records: list[dict], verbose=False) -> int:
         try:
