@@ -1,4 +1,4 @@
-package api
+package rest
 
 import (
 	"log"
@@ -23,7 +23,7 @@ type ApiHandlerMap map[string]*ApiHandler
 
 type RestRouter struct {
 	prefix   string
-	handlers ApiHandlerMap
+	handlers map[string]*ApiHandler
 }
 
 func (h *RestRouter) Path(r *http.Request) string {
@@ -52,7 +52,6 @@ func (h *RestRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	err := handler.handler(w, r)
 	if err != nil {
-		log.Printf("internal error: %v", err)
-		w.WriteHeader(500)
+		log.Fatalf("internal error: %v", err)
 	}
 }

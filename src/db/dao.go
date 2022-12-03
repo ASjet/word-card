@@ -56,6 +56,13 @@ var (
 	}
 )
 
+type Record struct {
+	Word        string              `json:"word"`
+	Contexts    []string            `json:"context,omitempty"`
+	Mastered    bool                `json:"mastered,omitempty"`
+	Definitions map[string][]string `json:"definitions,omitempty"`
+}
+
 type Dao struct {
 	db *sql.DB
 }
@@ -217,7 +224,9 @@ func (d *Dao) IsMastered(ctx context.Context, word int64) bool {
 	defer rows.Close()
 
 	mastered := false
-	rows.Scan(&mastered)
+	for rows.Next() {
+		rows.Scan(&mastered)
+	}
 	return mastered
 }
 
@@ -247,10 +256,15 @@ func (d *Dao) GetWordId(ctx context.Context, word string) (int64, error) {
 	}
 	defer rows.Close()
 
-	var id int64
-	err = rows.Scan(&id)
-	if err != nil {
-		return -1, err
+	var id int64 = -1
+	for rows.Next() {
+		err = rows.Scan(&id)
+		if err != nil {
+			return -1, err
+		}
+	}
+	if id == -1 {
+		return id, fmt.Errorf("no such word: %q", word)
 	}
 	return id, nil
 }
@@ -296,13 +310,58 @@ func (d *Dao) GetDefine(ctx context.Context,
 	return res, nil
 }
 
-func (d *Dao) DelWord(ctx context.Context, word string) error {
-	_, err := d.Delete(ctx, TBL_WORDS, map[string]any{"word": word})
+func (d *Dao) DelWord(ctx context.Context, id int64) error {
+	_, err := d.Delete(ctx, TBL_WORDS, map[string]any{"id": id})
 	return err
 }
 
 func (d *Dao) PurgeDB(ctx context.Context) (int64, error) {
 	return d.Delete(ctx, TBL_WORDS, nil)
+}
+
+func (d *Dao) InsertRecord(ctx context.Context, record *Record) error {
+	tx, err := d.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	ts := time.Now().Unix()
+
+	result, err := tx.Exec("INSERT INTO words (word,create_time) VALUES (?,?)",
+		record.Word, ts)
+	if err != nil {
+		return err
+	}
+	wid, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("INSERT INTO mastered (word,mastered,update_time) VALUES (?,?,?)",
+		wid, false, ts)
+	if err != nil {
+		return err
+	}
+
+	for _, context := range record.Contexts {
+		_, err := tx.Exec("INSERT INTO context (word,context,create_time) VALUES (?,?,?)",
+			wid, context, ts)
+		if err != nil {
+			return err
+		}
+	}
+
+	for category, defines := range record.Definitions {
+		for _, define := range defines {
+			_, err := tx.Exec("INSERT INTO define (word,category,define,create_time) VALUES (?,?,?,?)",
+				wid, category, define, ts)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
 }
 
 func repeatJoin(str string, cnt int, sep string) string {

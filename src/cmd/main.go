@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"wordcard/db"
 	"wordcard/web"
@@ -22,6 +21,7 @@ func init() {
 }
 
 func main() {
+	flag.Parse()
 	if purge {
 		dao, err := db.NewDao()
 		if err != nil {
@@ -31,7 +31,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("%d record(s) deleted", n)
+		log.Printf("%d record(s) deleted", n)
 		return
 	}
 	log.Printf("Listen on port %d", port)

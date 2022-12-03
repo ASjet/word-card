@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 	"wordcard/assets"
-	"wordcard/web/api"
+	"wordcard/web/rest"
 )
 
 type Router struct {
@@ -27,7 +27,7 @@ func Register(name, prefix string, router http.Handler) {
 func init() {
 	apiRouters = make([]*Router, 0, 2)
 	Register("page", "/", http.FileServer(assets.MemFs))
-	Register("restv1", "/v1/", api.NewRestV1("/v1/"))
+	Register("restv1", "/v1/", rest.NewRestV1("/v1/"))
 }
 
 type Server struct {
