@@ -4,64 +4,96 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 )
 
 const (
-	BASE_URL = "https://api.dictionaryapi.dev/api/v2/entries"
+	OD_BASE_URL = "https://od-api.oxforddictionaries.com/api/v2/entries"
 )
 
-type Definition struct {
-	Definition string `json:"definition"`
+var (
+	API_ID  string
+	API_KEY string
+)
+
+func init() {
+	API_ID = os.Getenv("API_ID")
+	API_KEY = os.Getenv("API_KEY")
 }
 
-type Meaning struct {
-	Category    string       `json:"partOfSpeech"`
-	Definitions []Definition `json:"definitions"`
+type Sense struct {
+	Definitions []string `json:"definitions"`
+}
+
+type Entry struct {
+	Senses []Sense `json:"senses"`
+}
+
+type Category struct {
+	Category string `json:"text"`
+}
+
+type LexicalEntry struct {
+	Entries  []Entry  `json:"entries"`
+	Category Category `json:"lexicalCategory"`
 }
 
 type Result struct {
-	Word     string    `json:"word"`
-	Phonetic string    `json:"phonetic"`
-	Meanings []Meaning `json:"meanings"`
+	Entries []LexicalEntry `json:"lexicalEntries"`
 }
 
-type OnlineDict struct {
-	Results []Result
-	Define  *Define
+type ODResult struct {
+	Word    string   `json:"word"`
+	Results []Result `json:"results"`
 }
 
-func NewOnlineDict() API {
-	return new(OnlineDict)
+type OxfordDict struct {
+	Result *ODResult
+	Define *Define
 }
 
-func (od *OnlineDict) Query(word, lang string) error {
-	resp, err := http.Get(fmt.Sprintf("%s/%s/%s", BASE_URL,
-		lang, strings.ToLower(word)))
+func NewOxfordDict() API {
+	return new(OxfordDict)
+}
+
+func (od *OxfordDict) Query(word, lang string) error {
+	client := new(http.Client)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s/%s?fields=definitions",
+		OD_BASE_URL, lang, strings.ToLower(word)), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("app_id", API_ID)
+	req.Header.Add("app_key", API_KEY)
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-
 	decoder := json.NewDecoder(resp.Body)
-	return decoder.Decode(&od.Results)
+	od.Result = new(ODResult)
+	return decoder.Decode(od.Result)
 }
 
-func (od *OnlineDict) Parse() (*Define, error) {
+func (od *OxfordDict) Parse() (*Define, error) {
 	if od.Define == nil {
-		if len(od.Results) == 0 {
+		if od.Result == nil {
 			return nil, fmt.Errorf("no result found, query first")
 		}
 		od.Define = new(Define)
-		od.Define.Word = od.Results[0].Word
-		od.Define.Phonetic = od.Results[0].Phonetic
+		od.Define.Word = od.Result.Word
 
 		defines := make(map[string][]string)
-		for _, res := range od.Results {
-			for _, means := range res.Meanings {
-				category := means.Category
-				for _, define := range means.Definitions {
-					defines[category] = append(defines[category], define.Definition)
+		for _, res := range od.Result.Results {
+			for _, lentries := range res.Entries {
+				category := lentries.Category.Category
+				for _, entry := range lentries.Entries {
+					for _, sense := range entry.Senses {
+						defines[category] = append(defines[category], sense.Definitions...)
+					}
 				}
 			}
 		}

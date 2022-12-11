@@ -82,7 +82,7 @@ func v1Word(w http.ResponseWriter, r *http.Request) error {
 
 		wid, err := dao.GetWordId(r.Context(), record.Word)
 		if err != nil {
-			dict := api.NewOnlineDict()
+			dict := api.NewFreeDict()
 			err = dict.Query(record.Word, "en")
 			if err != nil {
 				log.Print(err)
