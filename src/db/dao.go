@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
+	"wordcard/model"
 
 	_ "modernc.org/sqlite"
 )
@@ -189,22 +190,22 @@ func (d *Dao) Delete(ctx context.Context, table string,
 }
 
 func (d *Dao) InsertWord(ctx context.Context,
-	word *Words) (int64, error) {
+	word *model.Words) (int64, error) {
 	return d.Insert(ctx, TBL_WORDS, word)
 }
 
 func (d *Dao) InsertContext(ctx context.Context,
-	context *Context) (int64, error) {
+	context *model.Context) (int64, error) {
 	return d.Insert(ctx, TBL_CONTEXT, context)
 }
 
 func (d *Dao) InsertDefine(ctx context.Context,
-	define *Define) (int64, error) {
+	define *model.Define) (int64, error) {
 	return d.Insert(ctx, TBL_DEFINE, define)
 }
 
 func (d *Dao) MasterWord(ctx context.Context,
-	mastered Mastered) error {
+	mastered model.Mastered) error {
 	_, err := d.Update(ctx, TBL_MASTERED,
 		map[string]any{"mastered": mastered.Mastered},
 		map[string]any{"word": mastered.Word})

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"wordcard/model"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -26,7 +27,7 @@ func newDaoTester(t *testing.T) *DaoTester {
 func (t *DaoTester) insertWords(words ...string) []int64 {
 	ids := make([]int64, 0, len(words))
 	for _, word := range words {
-		id, err := t.dao.Insert(context.TODO(), TBL_WORDS, &Words{Word: word})
+		id, err := t.dao.Insert(context.TODO(), TBL_WORDS, &model.Words{Word: word})
 		assert.NoError(t.t, err)
 		ids = append(ids, id)
 	}

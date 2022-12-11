@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"wordcard/api"
 	"wordcard/db"
+	"wordcard/model"
 )
 
 var dao *db.Dao
@@ -101,7 +102,7 @@ func v1Word(w http.ResponseWriter, r *http.Request) error {
 			}
 			return ok(w, "Record Successfully", nil)
 		}
-		_, err = dao.InsertContext(r.Context(), &db.Context{
+		_, err = dao.InsertContext(r.Context(), &model.Context{
 			Word:    wid,
 			Context: record.Contexts[0],
 		})
@@ -166,7 +167,7 @@ func v1Master(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return notFount(w)
 	}
-	err = dao.MasterWord(r.Context(), db.Mastered{
+	err = dao.MasterWord(r.Context(), model.Mastered{
 		Word:     wid,
 		Mastered: true,
 	})

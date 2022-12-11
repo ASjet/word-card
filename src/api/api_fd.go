@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"wordcard/model"
 )
 
 const (
@@ -28,7 +29,7 @@ type FDResult struct {
 
 type FreeDict struct {
 	Results []FDResult
-	Define  *Define
+	Define  *model.WordDefine
 }
 
 func NewFreeDict() API {
@@ -47,12 +48,12 @@ func (fd *FreeDict) Query(word, lang string) error {
 	return decoder.Decode(&fd.Results)
 }
 
-func (fd *FreeDict) Parse() (*Define, error) {
+func (fd *FreeDict) Parse() (*model.WordDefine, error) {
 	if fd.Define == nil {
 		if len(fd.Results) == 0 {
 			return nil, fmt.Errorf("no result found, query first")
 		}
-		fd.Define = new(Define)
+		fd.Define = new(model.WordDefine)
 		fd.Define.Word = fd.Results[0].Word
 		fd.Define.Phonetic = fd.Results[0].Phonetic
 

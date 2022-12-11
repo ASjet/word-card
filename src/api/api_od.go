@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"wordcard/model"
 )
 
 const (
@@ -50,7 +51,7 @@ type ODResult struct {
 
 type OxfordDict struct {
 	Result *ODResult
-	Define *Define
+	Define *model.WordDefine
 }
 
 func NewOxfordDict() API {
@@ -78,12 +79,12 @@ func (od *OxfordDict) Query(word, lang string) error {
 	return decoder.Decode(od.Result)
 }
 
-func (od *OxfordDict) Parse() (*Define, error) {
+func (od *OxfordDict) Parse() (*model.WordDefine, error) {
 	if od.Define == nil {
 		if od.Result == nil {
 			return nil, fmt.Errorf("no result found, query first")
 		}
-		od.Define = new(Define)
+		od.Define = new(model.WordDefine)
 		od.Define.Word = od.Result.Word
 
 		defines := make(map[string][]string)
