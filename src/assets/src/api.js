@@ -8,7 +8,7 @@ async function api(url, method, payload) {
     if (payload) {
         option.body = payload
     }
-    return await fetch(url, option)
+    return await fetch("/v1"+url, option)
         .then(async function (res) {
             const data = await res.json();
             return {

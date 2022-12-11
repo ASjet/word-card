@@ -79,7 +79,7 @@ class Context extends React.Component {
     const word = event.target.textContent.replaceAll(/[^A-Za-z]/ig, '');
     const record = JSON.stringify({
       "word": word,
-      "context": this.state.context
+      "context": [this.state.context]
     });
     this.setState({
       words: (<CircularProgress />)
